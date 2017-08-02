@@ -19,7 +19,7 @@ _={
 	write: '"write" | "print"',
 
 	// EXPRESSIONS
-	expression: 'ifblock | io | event | arithmatic | indexexp | constant | assignment| var',
+	expression: 'ifblock | eventblock | io | event | arithmatic | indexexp | constant | assignment| var',
 	paranexp: '"\\(", expression, "\\)"',
 	eitherexp: 'expression | paranexp',
 

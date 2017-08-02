@@ -1,21 +1,9 @@
 const tokenizer = require("./tokenizer")
 
 var inp = `
-when fib is *{
-	if fib <= 1
-		fibout = 1
-	else if fib != 1{
-	 	local n = fib;
-	 	fib = n - 1;
-	 	local a = fibout;
-	 	fib = n - 2;
-	 	local b = fibout;
-	 	fibout = a + b;
-	}
-};
-
-fib = 5;
-print fibout;
+x = read y
+print x
+print y
 `
 
 var tokens = tokenizer.tokenize(inp);
@@ -68,6 +56,9 @@ var parseExpression = function(exp,scope){
 	
 	if(typ == "ifblock")
 		return ifblock(ent[1], scope);
+
+	if(typ == "eventblock")
+		return eventblock(ent[1], scope);
 
 	throw new Error("Cannot Parse Expression for type: "+typ)
 }
@@ -261,6 +252,19 @@ var ifblock = function(ifbl, scope){
 	}
 }
 
+var eventblock = function(evntblock, scope){
+	var exp = evntblock[1];
+	var block = evntblock[2][1][1][1];
+	var event = parseExpression(exp, scope);
+	if(event && event.scope){
+		event = cloneEvent(event);
+		event.block = block;
+		event.myscope = scope;
+		event.scope.events.push(event);
+	}
+	return event;
+}
+
 var getVar = function(scope, name){
 	if(scope.vars[name]!=undefined)
 		return scope.vars[name]
@@ -278,22 +282,20 @@ var runProgram = function(tokens, p){
 	}else if(typ == "io"){
 		io(statement,scope);
 	}else if(typ == "eventblock"){
-		var exp = statement[1][1];
-		var block = statement[1][2][1][1][1];
-		var event = parseExpression(exp, scope);
-		if(event && event.scope){
-			event = cloneEvent(event);
-			event.block = block;
-			event.myscope = scope;
-			event.scope.events.push(event);
-		}
+		eventblock(dat, scope);
 	}else if(typ == "ifblock"){
 		ifblock(dat, scope);
 	}else{
 		console.log(tokens);
 		throw new Error("Unknown statement type: "+typ)
 	}
-	if(tokens[2])
-		runProgram(tokens[2][1], scope);
+	if(tokens[1]){
+		if(tokens[1][0]==";"){
+			if(tokens[2])
+				runProgram(tokens[2][1], scope);
+		}else{
+			runProgram(tokens[1][1], scope);
+		}
+	}
 }
 runProgram(tokens[0])
