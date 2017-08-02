@@ -1,9 +1,21 @@
 const tokenizer = require("./tokenizer")
 
 var inp = `
-when (x is 3){
+when fib is *{
+	if fib <= 1
+		fibout = 1
+	else if fib != 1{
+	 	local n = fib;
+	 	fib = n - 1;
+	 	local a = fibout;
+	 	fib = n - 2;
+	 	local b = fibout;
+	 	fibout = a + b;
+	}
+};
 
-}
+fib = 5;
+print fibout;
 `
 
 var tokens = tokenizer.tokenize(inp);
@@ -21,6 +33,9 @@ var stdin = "Default STDIN";
 
 // When executed, take an expression, return a value.
 var parseExpression = function(exp,scope){
+	if(!scope){
+		throw new Error("I dropped my scope...");
+	}
 	var typ = exp[0];
 
 	if(typ == "eitherexp")
@@ -42,13 +57,19 @@ var parseExpression = function(exp,scope){
 		var o = io(ent, scope);
 		return o;
 	}
-	if(typ == "arithmatic"){
+	if(typ == "arithmatic")
 		return parseArithmatic(ent, scope);
-	}
-	if(typ == "assignment"){
+	
+	if(typ == "assignment")
 		return assignment(ent, scope);
-	}
-	console.error("Cannot Parse Expression for type: "+typ)
+	
+	if(typ == "event")
+		return parseEvent(ent, scope);
+	
+	if(typ == "ifblock")
+		return ifblock(ent[1], scope);
+
+	throw new Error("Cannot Parse Expression for type: "+typ)
 }
 
 var parseConstant = function(exp){
@@ -62,6 +83,26 @@ var parseConstant = function(exp){
 
 	}else{
 		console.error("Unknown constant type: "+typ)
+	}
+}
+
+var parseEvent = function(evnt, scope){
+	evnt = evnt[1][0];
+	var typ = evnt[0];
+	if(typ == "is"){
+		var dat = evnt[1];
+
+		var v = dat[0][1][0][1];
+		var exp = dat[2]
+		var event = newEvent({type : "onChange", any: false, var: v})
+		if(exp[0]=="\\*")
+			event.any = true;
+		else
+			event.target = parseExpression(exp, scope)
+		event.scope = scope;
+		while(event.scope.parent && event.scope.vars[v]==undefined)
+			event.scope = event.scope.parent
+		return event;
 	}
 }
 
@@ -90,6 +131,18 @@ var parseArithmatic = function(mth, scope){
 		return left + right
 	if(oper == "subtract")
 		return left - right
+	if(oper == "equals")
+		return left == right?1:0
+	if(oper == "lessthan")
+		return left < right?1:0
+	if(oper == "greaterthan")
+		return left > right?1:0
+	if(oper == "lessthanequals")
+		return left <= right?1:0
+	if(oper == "greaterthanequals")
+		return left >= right?1:0
+	if(oper == "notequals")
+		return left != right?1:0
 	console.error("Unknown operator token provided: "+oper)
 }
 
@@ -99,13 +152,11 @@ var assignment = function(assign,scope){
 	if(t == "var"){
 		var v = dat[0][1][0][1]
 		var val = parseExpression(dat[2],scope)
-		assignTo(scope, false, v, val);
-		return val;
+		return assignTo(scope, false, v, val);
 	}else if(t == "local"){
 		var v = dat[1][1][0][1]
 		var val = parseExpression(dat[3],scope)
-		assignTo(scope, true, v, val);
-		return val;
+		return assignTo(scope, true, v, val);
 	}else if(t == "indexexp"){
 
 	}
@@ -150,24 +201,75 @@ var io = function(io,scope){
 }
 
 var newscope = function(parent){
-	return {vars: {}, parent: parent};
+	return {vars: {}, parent: parent, events: []};
+}
+
+var newEvent = function(dat){
+	dat = dat || {};
+	dat.toString = ()=>`EVENT: ${dat.type}`;
+	return dat;
+}
+
+var cloneEvent = function(event){
+	var nEvent = {};
+	for(n in event){
+		nEvent[n] = event[n];
+	}
+	return nEvent;
 }
 
 var assignTo = function(scope, local, key, value){
-	if(!local && !!scope.parent && scope.vars[key]=="undefined")
+	if(!local && !!scope.parent && scope.vars[key]==undefined)
 		return assignTo(scope.parent, local, key, value)
+
 	scope.vars[key] = value;
+	scope.events.forEach(event=>{
+		if(event.type == "onChange"){
+			if(event.var == key){
+				if(event.any || event.target == value){
+					var nScope = newscope(event.myscope)
+					runProgram(event.block, nScope);
+				}
+			}
+		}
+	});
+	return scope.vars[key];
+}
+
+var ifblock = function(ifbl, scope){
+	var exp = ifbl[1];
+	var block = ifbl[2];
+	var elif = ifbl[3];
+	var res = parseExpression(exp, scope);
+	if(res){
+		var onTrue = block[1];
+		if(block[0] == "block"){
+			var nScope = newscope(scope);
+			runProgram(onTrue[1][1], nScope);
+		}else{
+			return parseExpression(onTrue[0], scope);
+		}
+	}else if(elif){
+		var other = elif[1][1];
+		if(other[0] == "block"){
+			var nScope = newscope(scope);
+			runProgram(other[1][1][1], nScope);
+		}
+		else{
+			return parseExpression(other, scope);
+		}
+	}
 }
 
 var getVar = function(scope, name){
-	if(scope.vars[name])
+	if(scope.vars[name]!=undefined)
 		return scope.vars[name]
 	if(scope.parent)
 		return getVar(scope.parent, name)
 }
 
 var runProgram = function(tokens, p){
-	scope = p || newscope();
+	var scope = p || newscope();
 	var statement = tokens[0][1][0];
 	var typ = statement[0];
 	var dat = statement[1];
@@ -177,11 +279,19 @@ var runProgram = function(tokens, p){
 		io(statement,scope);
 	}else if(typ == "eventblock"){
 		var exp = statement[1][1];
-		var block = statement[1][1];
+		var block = statement[1][2][1][1][1];
 		var event = parseExpression(exp, scope);
-		
+		if(event && event.scope){
+			event = cloneEvent(event);
+			event.block = block;
+			event.myscope = scope;
+			event.scope.events.push(event);
+		}
+	}else if(typ == "ifblock"){
+		ifblock(dat, scope);
 	}else{
-		console.log("Unknown statement type: "+typ)
+		console.log(tokens);
+		throw new Error("Unknown statement type: "+typ)
 	}
 	if(tokens[2])
 		runProgram(tokens[2][1], scope);

@@ -7,17 +7,19 @@ _={
 	index: '"\\[", expression, "\\]"',
 
 	// STATEMENT
-	statement: 'assignment|eventblock|io',
+	statement: 'assignment|ifblock|eventblock|io',
 	assignment: '"local"?,var,"=",eitherexp | indexexp, "=", eitherexp',
 	eventblock: '"when", eitherexp, block',
+	ifblock: '"if", eitherexp, block, elseif? | "if", eitherexp, eitherexp, elseif?',
+	elseif: '"else", block | "else", eitherexp',
 
 	// IO
-	io: 'write, expression | read, "local"?, var',
+	io: 'write, eitherexp | read, "local"?, var',
 	read: '"readline" | "readbyte" | "readall" | "read"',
 	write: '"write" | "print"',
 
 	// EXPRESSIONS
-	expression: 'io | event | arithmatic | indexexp | constant | assignment| var',
+	expression: 'ifblock | io | event | arithmatic | indexexp | constant | assignment| var',
 	paranexp: '"\\(", expression, "\\)"',
 	eitherexp: 'expression | paranexp',
 
@@ -30,13 +32,21 @@ _={
 
 	// OPERATORS
 	arithmatic: 'paranexp, operator, eitherexp | constant, operator, eitherexp | var, operator, eitherexp',
-	operator: 'power | mod | multiply | divide | add | subtract',
+	operator: 'power | mod | multiply | divide | add | subtract | equals | lessthanequals | greaterthanequals | notequals | lessthan | greaterthan',
 	power: '"\\^"',
 	mod: '"%"',
 	multiply: '"\\*"',
 	divide: '"/"',
 	add: '"\\+"',
 	subtract: '"-"',
+
+	// COMPARISONS
+	equals: '"=="',
+	lessthan: '"<"',
+	greaterthan: '">"',
+	lessthanequals: '"<="',
+	greaterthanequals: '">="',
+	notequals: '"!="',
 
 	// EVENT BUILDERS
 	event: 'is',
