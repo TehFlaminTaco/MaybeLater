@@ -1,23 +1,17 @@
 const tokenizer = require("./tokenizer")
+const fs = require("fs");
 
-var inp = `
-x = read y
-print x
-print y
-`
-
-var tokens = tokenizer.tokenize(inp);
-if(!tokens[0])
-	throw new Error("INVALID..?!");
-if(tokens[1])
-	console.error(tokens[1])
-
-/*var fs = require("fs");
-var s = fs.fstatSync(process.stdin.fd).size;
-var stdin = new Buffer(s)
-fs.readSync(process.stdin.fd, stdin, 0, s)
-stdin = stdin.toString();*/
-var stdin = "Default STDIN";
+const timeUnits = {
+	millisecond: 1,
+	second: 1000,
+	minute: 1000 * 60,
+	hour: 1000 * 60 * 60,
+	day: 1000 * 60 * 60 * 24,
+	month: 1000 * 60 * 60 * 24,
+	year: 100 * 60 * 60 * 24 * 365,
+	decade: 100 * 60 * 60 * 24 * 3652,
+	century: 100 * 60 * 60 * 24 * 36520,
+}
 
 // When executed, take an expression, return a value.
 var parseExpression = function(exp,scope){
@@ -36,7 +30,7 @@ var parseExpression = function(exp,scope){
 	typ = ent[0];
 
 	if(typ == "constant")
-		return parseConstant(ent)
+		return parseConstant(ent, scope)
 
 	if(typ == "var")
 		return getVar(scope, ent[1][0][1])
@@ -45,6 +39,7 @@ var parseExpression = function(exp,scope){
 		var o = io(ent, scope);
 		return o;
 	}
+	
 	if(typ == "arithmatic")
 		return parseArithmatic(ent, scope);
 	
@@ -60,10 +55,16 @@ var parseExpression = function(exp,scope){
 	if(typ == "eventblock")
 		return eventblock(ent[1], scope);
 
+	if(typ == "paranexp")
+		return parseExpression(ent, scope);
+
+	if(typ == "indexexp")
+		return parseIndex(ent, scope);
+
 	throw new Error("Cannot Parse Expression for type: "+typ)
 }
 
-var parseConstant = function(exp){
+var parseConstant = function(exp, scope){
 	var typ = exp[1][0][0];
 	var dat = exp[1][0][1];
 	if(typ == "numberconstant"){
@@ -71,7 +72,27 @@ var parseConstant = function(exp){
 	}else if(typ == "stringconstant"){
 		return dat[0][1].replace(/^(['\"])(.*)\1$/,"$2")
 	}else if(typ == "tableconstant"){
+		// I know for a fact I'm doing something wrong... I'll work out what...
+		var tableFill = dat[1];
+		var dat = newTable();
+		var i = 0;
+		while(tableFill[0] == "tablefill"){
+			var exp = tableFill[1][0]
+			if(exp[0] == "eitherexp"){
+				dat[i] = parseExpression(exp, scope);
+				i++;
+			}
+			if(exp[0] == "assignment"){
+				assignmentTable(exp,dat,scope);
+			}
 
+			if(!tableFill[1][1])
+				break;
+
+			tableFill = tableFill[1][1][1][1];
+		}
+
+		return dat;
 	}else{
 		console.error("Unknown constant type: "+typ)
 	}
@@ -95,6 +116,33 @@ var parseEvent = function(evnt, scope){
 			event.scope = event.scope.parent
 		return event;
 	}
+	if(typ == "timepassed"){
+		var dat = evnt[1];
+		var n = dat[0];
+		var unit = dat[1][1][0][0];
+		if(n[0] == "constant")
+			n = parseConstant(n, scope);
+		else
+			n = parseExpression(n, scope);
+		var event = newEvent({type: "timePassed", time: n * timeUnits[unit]});
+		return event;
+	}
+	throw new Error("Unknown event type: "+typ);
+}
+
+var parseIndex = function(ind, scope){
+	var v = ind[1][0];
+	if(v[0] == "var"){
+		v = getVar(scope,v[1][0][1]);
+	}else{
+		v = parseExpression(v, scope);
+	}
+	var ind = parseExpression(ind[1][1][1][1], scope);
+	try{
+		return v[ind];
+	}catch(e){
+
+	}
 }
 
 var parseArithmatic = function(mth, scope){
@@ -105,7 +153,7 @@ var parseArithmatic = function(mth, scope){
 	
 	var lType = left[0];
 	if(lType == "constant")
-		left = parseConstant(left);
+		left = parseConstant(left, scope);
 	if(lType == "var")
 		left = getVar(scope, left[1][0][1]);
 	if(lType == "paranexp")
@@ -148,6 +196,27 @@ var assignment = function(assign,scope){
 		var v = dat[1][1][0][1]
 		var val = parseExpression(dat[3],scope)
 		return assignTo(scope, true, v, val);
+	}else if(t == "indexexp"){
+		var v = getVar(scope, dat[0][1][0][1][0][1]);
+		var ind = parseExpression(dat[0][1][1][1][1],scope);
+		var val = parseExpression(dat[2],scope);
+		try{
+			v[ind] = val;
+		}catch(e){}
+	}
+}
+
+var assignmentTable = function(assign,table,scope){
+	var dat = assign[1];
+	var t = dat[0][0];
+	if(t == "var"){
+		var v = dat[0][1][0][1]
+		var val = parseExpression(dat[2],scope)
+		return table[v] = val;
+	}else if(t == "local"){
+		var v = dat[1][1][0][1]
+		var val = parseExpression(dat[3],scope)
+		return table[v] = val;
 	}else if(t == "indexexp"){
 
 	}
@@ -201,6 +270,12 @@ var newEvent = function(dat){
 	return dat;
 }
 
+var newTable = function(dat){
+	dat = dat || {};
+	dat.toString = ()=>JSON.stringify(dat);
+	return dat;
+}
+
 var cloneEvent = function(event){
 	var nEvent = {};
 	for(n in event){
@@ -218,8 +293,7 @@ var assignTo = function(scope, local, key, value){
 		if(event.type == "onChange"){
 			if(event.var == key){
 				if(event.any || event.target == value){
-					var nScope = newscope(event.myscope)
-					runProgram(event.block, nScope);
+					event.call();
 				}
 			}
 		}
@@ -254,13 +328,33 @@ var ifblock = function(ifbl, scope){
 
 var eventblock = function(evntblock, scope){
 	var exp = evntblock[1];
-	var block = evntblock[2][1][1][1];
+	var block = evntblock[2];
 	var event = parseExpression(exp, scope);
-	if(event && event.scope){
-		event = cloneEvent(event);
-		event.block = block;
-		event.myscope = scope;
-		event.scope.events.push(event);
+	var blockCall = ()=>{
+		if(block[0] == "block"){
+			var prgrm = block[1][1];
+			if(prgrm[0] == "}")
+				return;
+			var nScope = newscope(scope);
+			return runProgram(prgrm[1], nScope);
+		}else{
+			return parseExpression(block, scope);
+		}
+	}
+	if(event){
+		if(event.type == "onChange" && event.scope){
+			event = cloneEvent(event);
+			if(block[0] != "}"){
+				event.call = blockCall;
+				event.scope.events.push(event);
+			}
+		}else if(event.type == "timePassed"){
+			setTimeout(()=>{
+				var nScope = newscope(scope);
+				if(block[0] !== "}")
+					blockCall();
+			}, event.time);
+		}
 	}
 	return event;
 }
@@ -298,4 +392,36 @@ var runProgram = function(tokens, p){
 		}
 	}
 }
-runProgram(tokens[0])
+
+
+var codeFile = process.argv[2];
+if(!codeFile){
+	console.log(`MaybeLater v0.0.1
+Call with:
+	node interpreter.js <file>`)
+}else{
+	fs.readFile(process.argv[2], (err,data)=>{
+		if(err){
+			console.error("No file \""+process.argv[2]+"\" found.");
+			return;
+		}
+		var inp = data.toString();
+
+		var tokens = tokenizer.tokenize(inp);
+		if(!tokens[0])
+			throw new Error("INVALID..?!");
+		if(tokens[1])
+			console.error(JSON.parse(tokens[1]))
+
+		var stdin = "";
+		process.stdin.on('readable', ()=>{
+			var chunk = process.stdin.read();
+			if(chunk !== null)
+				stdin += chunk
+		})
+
+		process.stdin.on('end', ()=>{
+			runProgram(tokens[0])
+		});
+	})
+}

@@ -1,15 +1,16 @@
 _={
 	// General
 	program : 'statement, ";"?, program?',
-	block: '"{", program, "}" | "{", "}"',
+	block: '"{", program?, "}"',
 	var: '"[a-zA-Z_]\\w*"',
 	indexexp: 'var, index | paranexp, index',
-	index: '"\\[", expression, "\\]"',
+	index: '"\\[", eitherexp, "\\]"',
 
 	// STATEMENT
 	statement: 'assignment|ifblock|eventblock|io',
 	assignment: '"local"?,var,"=",eitherexp | indexexp, "=", eitherexp',
-	eventblock: '"when", eitherexp, block',
+	containedassignment: 'index, "=", eitherexp',
+	eventblock: '"when", eitherexp, block | "when", eitherexp, eitherexp',
 	ifblock: '"if", eitherexp, block, elseif? | "if", eitherexp, eitherexp, elseif?',
 	elseif: '"else", block | "else", eitherexp',
 
@@ -19,7 +20,7 @@ _={
 	write: '"write" | "print"',
 
 	// EXPRESSIONS
-	expression: 'ifblock | eventblock | io | event | arithmatic | indexexp | constant | assignment| var',
+	expression: 'ifblock | eventblock | io | event | arithmatic | indexexp | constant | assignment| var | paranexp',
 	paranexp: '"\\(", expression, "\\)"',
 	eitherexp: 'expression | paranexp',
 
@@ -28,7 +29,8 @@ _={
 	numberconstant: '"\\d+"',
 	stringconstant: `'".*?"' | "'.*?'"`,
 	tableconstant: '"{", tablefill, "}" | "{", "}"',
-	tablefill: 'expression , ",", tablefill | expression',
+	tablefill: 'containedassignment, conttablefill? | assignment, conttablefill? | eitherexp, conttablefill?',
+	conttablefill: '",", tablefill',
 
 	// OPERATORS
 	arithmatic: 'paranexp, operator, eitherexp | constant, operator, eitherexp | var, operator, eitherexp',
@@ -49,6 +51,21 @@ _={
 	notequals: '"!="',
 
 	// EVENT BUILDERS
-	event: 'is',
+	event: 'is | timepassed',
 	is: 'var, "is", "\\*" | var, "is", expression',
+	timepassed: 'constant, timeunit, "pass" | paranexp, timeunit, "pass"',
+
+	// TIME
+	// The great and powerful TACO knows only overkill.
+	timeunit: 'millisecond | second | minute | hour | day | month | year | decade | century',
+	millisecond: '"millisecond" | "milliseconds"',
+	second: '"second" | "seconds"',
+	minute: '"minute" | "minutes"',
+	hour: '"hour" | "hours"',
+	day: '"day" | "days"',
+	month: '"month" | "months"',
+	year: '"year" | "years"',
+	decade: '"decade" | "decades"',
+	century: '"century" | "centuries"',
+
 }
