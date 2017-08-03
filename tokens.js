@@ -54,10 +54,13 @@ _={
 
 	// EVENT ACTIONS
 	eventaction: 'action, listexp | action, expression',
-	action: 'destroy | read | write',
+	action: 'destroy | read | write | ord | chr | eval',
 	destroy: '"destroy"',
-	write: '"write" | "writebyte" | "print" | "printline"',
-	read: '"read" | "readbyte" | "readall" | "readline"',
+	write: '"writebyte" | "write" | "printline" | "print"',
+	read: '"readbyte" | "readall" | "readline" | "read"',
+	ord: '"ord" | "ordinal" | "byte"',
+	chr: '"chr" | "character"',
+	eval: '"eval" | "exec" | "run" | "do"',
 
 	// TIME
 	// The great and powerful TACO knows only overkill.

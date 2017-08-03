@@ -387,12 +387,31 @@ var eventaction = function(action, scope){
 			var ret = stdin.splice(0,1);
 			stdin = stdin.join("");
 			return ret.charCodeAt(0);
-		}else{
-			stdin = stdin.split(/\n/)
-			var ret = stdin.splice(0,1);
-			stdin = stdin.join("\n");
-			return ret;
 		}
+		stdin = stdin.split(/\n/)
+		var ret = stdin.splice(0,1);
+		stdin = stdin.join("\n");
+		return ret;
+	}
+	if(a == "chr"){
+		return String.fromCharCode(val[0]);
+	}
+	if(a == "ord"){
+		return val[0].charCodeAt(0);
+	}
+	if(a == "eval"){
+		var toRun = val[0];
+		var exprToken = tokenizer.matchToken(tokenizer.tokens.expression, toRun);
+		var nScope = newscope(scope);
+		if(exprToken && !exprToken[1]){
+			return parseExpression(['expression', exprToken[0]], nScope)
+		}else{
+			var progToken = tokenizer.tokenize(toRun);
+			if(progToken && !progToken[1]){
+				return runProgram(progToken[0]);
+			}
+		}
+
 	}
 	throw new Error("Unknown event action: " + a);
 }
