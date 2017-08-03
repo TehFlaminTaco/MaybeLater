@@ -1,6 +1,8 @@
 const fs = require("fs")
 
-var dat = fs.readFileSync("tokens.js", ()=>{})
+module.exports = function(path){
+
+var dat = fs.readFileSync(path + "tokens.js", ()=>{})
 
 var tokens = eval(dat.toString())
 
@@ -92,4 +94,6 @@ var matchToken = function(token, text){
 	return false
 }
 
-module.exports = {matchToken: matchToken, tokens: tokens, tokenize: prog=>matchToken(tokens.program, prog)}
+return {matchToken: matchToken, tokens: tokens, tokenize: prog=>matchToken(tokens.program, prog)}
+
+}

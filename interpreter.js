@@ -1,4 +1,5 @@
-const tokenizer = require("./tokenizer")
+var path = process.argv[1].replace(/(.*?\\)interpreter.js/, "$1");
+const tokenizer = require("./tokenizer")(path);
 const fs = require("fs");
 
 const timeUnits = {
