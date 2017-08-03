@@ -53,7 +53,13 @@ for(var name in tokens){
 }
 
 var matchToken = function(token, text){
-	text = text.replace(/^\s*/,"")
+	var ol = "";
+	while(ol != text){
+		ol = text
+		text = text.replace(/^\s*/, "") // Remove initial whitespace.
+		text = text.replace(/^\/\/.*/, "") // Remove single line comments
+		text = text.replace(/^\/\*(.|\s)*\*\//, "") // Remove multiline comments
+	}
 	if(!token)
 		return false;
 	for(var i=0; i < token.length; i++){	// For each optional token.

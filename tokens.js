@@ -7,22 +7,19 @@ _={
 	index: '"\\[", eitherexp, "\\]"',
 
 	// STATEMENT
-	statement: 'assignment|ifblock|eventblock|io',
+	statement: 'assignment|eventaction|ifblock|eventblock',
 	assignment: '"local"?,var,"=",eitherexp | indexexp, "=", eitherexp',
 	containedassignment: 'index, "=", eitherexp',
 	eventblock: '"when", eitherexp, block | "when", eitherexp, eitherexp',
 	ifblock: '"if", eitherexp, block, elseif? | "if", eitherexp, eitherexp, elseif?',
 	elseif: '"else", block | "else", eitherexp',
 
-	// IO
-	io: 'write, eitherexp | read, "local"?, var',
-	read: '"readline" | "readbyte" | "readall" | "read"',
-	write: '"write" | "print"',
-
 	// EXPRESSIONS
-	expression: 'ifblock | eventblock | io | event | arithmatic | indexexp | constant | assignment| var | paranexp',
+	expression: 'ifblock | eventblock | eventaction | event | arithmatic | indexexp | constant | assignment| var | paranexp',
 	paranexp: '"\\(", expression, "\\)"',
 	eitherexp: 'expression | paranexp',
+	listexp : '"\\(", expression?, expressioncont?, "\\)"',
+	expressioncont: '",", expression, expressioncont?',
 
 	// CONSTANTS
 	constant: 'numberconstant | stringconstant | tableconstant',
@@ -54,6 +51,13 @@ _={
 	event: 'is | timepassed',
 	is: 'var, "is", "\\*" | var, "is", expression',
 	timepassed: 'constant, timeunit, "pass" | paranexp, timeunit, "pass"',
+
+	// EVENT ACTIONS
+	eventaction: 'action, listexp | action, expression',
+	action: 'destroy | read | write',
+	destroy: '"destroy"',
+	write: '"write" | "writebyte" | "print" | "printline"',
+	read: '"read" | "readbyte" | "readall" | "readline"',
 
 	// TIME
 	// The great and powerful TACO knows only overkill.

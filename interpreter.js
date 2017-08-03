@@ -1,6 +1,7 @@
 var path = process.argv[1].replace(/(.*?)interpreter.js$/, "$1");
 const tokenizer = require("./tokenizer")(path);
 const fs = require("fs");
+var stdin = "";
 
 const timeUnits = {
 	millisecond: 1,
@@ -36,11 +37,6 @@ var parseExpression = function(exp,scope){
 	if(typ == "var")
 		return getVar(scope, ent[1][0][1])
 	
-	if(typ == "io"){
-		var o = io(ent, scope);
-		return o;
-	}
-	
 	if(typ == "arithmatic")
 		return parseArithmatic(ent, scope);
 	
@@ -61,6 +57,9 @@ var parseExpression = function(exp,scope){
 
 	if(typ == "indexexp")
 		return parseIndex(ent, scope);
+
+	if(typ == "eventaction")
+		return eventaction(ent[1], scope);
 
 	throw new Error("Cannot Parse Expression for type: "+typ)
 }
@@ -86,6 +85,12 @@ var parseConstant = function(exp, scope){
 			if(exp[0] == "assignment"){
 				assignmentTable(exp,dat,scope);
 			}
+			if(exp[0] == "containedassignment"){
+				var ind = parseExpression(exp[1][0][1][1], scope);
+				var expr = parseExpression(exp[1][2], scope);
+				dat[ind] = expr;
+
+			}
 
 			if(!tableFill[1][1])
 				break;
@@ -97,6 +102,21 @@ var parseConstant = function(exp, scope){
 	}else{
 		console.error("Unknown constant type: "+typ)
 	}
+}
+
+var parseListExp = function(exp, scope){
+	if(exp[0]!="listexp" && exp[0]!="expressioncont")
+		return [parseExpression(exp, scope)];
+	var subexp = exp[1][1];
+	if(subexp[0]!="expression")
+		return [];
+	var contexp = exp[1][2];
+	var res1 = parseExpression(subexp, scope);
+	var rest = [res1];
+	if(contexp && contexp[0] == "expressioncont"){
+		rest = rest.concat(parseListExp(contexp, scope));
+	}
+	return rest
 }
 
 var parseEvent = function(evnt, scope){
@@ -223,44 +243,6 @@ var assignmentTable = function(assign,table,scope){
 	}
 }
 
-var io = function(io,scope){
-	var dat = io[1];
-	if(dat[0][0] == "write"){
-		var nl = dat[0][1][0][1] == "print" ? "\n" : ""
-		var val = parseExpression(dat[1],scope);
-		process.stdout.write(val+nl)
-		return val;
-	}else{
-		var readMethod = dat[0][1][0][0];
-		var v;
-		var local = false;
-		if(dat[1][0] == "local"){
-			local = true;
-			v = dat[2][1][0][1];
-		}else{
-			v = dat[1][1][0][1];
-		}
-		if(readMethod == "readall" || readMethod == "read"){
-			assignTo(scope, local, v, stdin);
-			var ret = stdin;
-			stdin = "";
-			return ret;
-		}else if(readMethod == "readline"){
-			var stt = stdin.split("\n");
-			var ret = stt.splice(0,1);
-			assignTo(scope, local, v, ret);
-			stdin = stt.join("\n");
-			return ret;
-		}else if(readMethod == "readbyte"){
-			var stt = stdin.split("");
-			var ret = stt.splice(0,1);
-			assignTo(scope, local, v, ret);
-			stdin = stt.join("");
-			return ret;
-		}
-	}
-}
-
 var newscope = function(parent){
 	return {vars: {}, parent: parent, events: []};
 }
@@ -268,6 +250,7 @@ var newscope = function(parent){
 var newEvent = function(dat){
 	dat = dat || {};
 	dat.toString = ()=>`EVENT: ${dat.type}`;
+	dat.valid = true;
 	return dat;
 }
 
@@ -282,6 +265,7 @@ var cloneEvent = function(event){
 	for(n in event){
 		nEvent[n] = event[n];
 	}
+	nEvent.master = event;
 	return nEvent;
 }
 
@@ -291,6 +275,8 @@ var assignTo = function(scope, local, key, value){
 
 	scope.vars[key] = value;
 	scope.events.forEach(event=>{
+		if(!event.valid || (event.master && !event.master.valid))
+			return;
 		if(event.type == "onChange"){
 			if(event.var == key){
 				if(event.any || event.target == value){
@@ -351,6 +337,8 @@ var eventblock = function(evntblock, scope){
 			}
 		}else if(event.type == "timePassed"){
 			setTimeout(()=>{
+				if(!event.valid || (event.master && !event.master.valid))
+					return;
 				var nScope = newscope(scope);
 				if(block[0] !== "}")
 					blockCall();
@@ -358,6 +346,55 @@ var eventblock = function(evntblock, scope){
 		}
 	}
 	return event;
+}
+
+var eventaction = function(action, scope){
+	var act = action[0][1][0];
+	var a = act[0];
+	var val = parseListExp(action[1], scope);
+	if(a == "destroy"){
+		val = val[0]
+		if(!val || typeof val != "object")
+			return;
+		val.valid = false;
+		return val;
+	}
+	if(a == "write"){
+		var outType = act[1][0][0];
+		var txt = "";
+		for(var i=0; i<val.length; i++){
+			txt += val[i].toString();
+		}
+		if(outType == "print" || outType == "printline"){
+			process.stdout.write(txt+"\n");
+			return val[0];
+		}
+		if(outType == "writebyte"){
+			process.stdout.write(String.fromCharCode(val[0]));
+			return val[0]
+		}
+		process.stdout.write(txt);
+		return val[0];
+	}
+	if(a == "read"){
+		var inType = act[1][0][0];
+		if(inType == "read" || inType == "readall"){
+			var ret = stdin;
+			stdin = "";
+			return ret;
+		}else if(inType == "readbyte"){
+			stdin = stdin.split("");
+			var ret = stdin.splice(0,1);
+			stdin = stdin.join("");
+			return ret.charCodeAt(0);
+		}else{
+			stdin = stdin.split(/\n/)
+			var ret = stdin.splice(0,1);
+			stdin = stdin.join("\n");
+			return ret;
+		}
+	}
+	throw new Error("Unknown event action: " + a);
 }
 
 var getVar = function(scope, name){
@@ -374,12 +411,12 @@ var runProgram = function(tokens, p){
 	var dat = statement[1];
 	if(typ == "assignment"){
 		assignment(statement,scope)
-	}else if(typ == "io"){
-		io(statement,scope);
 	}else if(typ == "eventblock"){
 		eventblock(dat, scope);
 	}else if(typ == "ifblock"){
 		ifblock(dat, scope);
+	}else if(typ == "eventaction"){
+		eventaction(dat, scope);
 	}else{
 		console.log(tokens);
 		throw new Error("Unknown statement type: "+typ)
@@ -412,9 +449,8 @@ Call with:
 		if(!tokens[0])
 			throw new Error("INVALID..?!");
 		if(tokens[1])
-			console.error(JSON.parse(tokens[1]))
+			console.error(JSON.stringify(tokens[1]))
 
-		var stdin = "";
 		process.stdin.on('readable', ()=>{
 			var chunk = process.stdin.read();
 			if(chunk !== null)
