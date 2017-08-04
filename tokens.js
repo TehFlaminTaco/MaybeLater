@@ -7,7 +7,7 @@ _={
 	index: '"\\[", eitherexp, "\\]"',
 
 	// STATEMENT
-	statement: 'assignment|eventaction|ifblock|eventblock',
+	statement: 'assignment|incrementer|eventaction|ifblock|eventblock',
 	assignment: '"local"?,var,"=",eitherexp | indexexp, "=", eitherexp',
 	containedassignment: 'index, "=", eitherexp',
 	eventblock: '"when", eitherexp, block | "when", eitherexp, eitherexp',
@@ -15,11 +15,17 @@ _={
 	elseif: '"else", block | "else", eitherexp',
 
 	// EXPRESSIONS
-	expression: 'ifblock | eventblock | eventaction | event | arithmatic | indexexp | constant | assignment| var | paranexp',
+	expression: 'ifblock | eventblock | eventaction | event | arithmatic | indexexp | constant | assignment| incrementer| var | paranexp',
 	paranexp: '"\\(", expression, "\\)"',
 	eitherexp: 'expression | paranexp',
 	listexp : '"\\(", expression?, expressioncont?, "\\)"',
 	expressioncont: '",", expression, expressioncont?',
+
+	// INCREMEMTERS
+	// +=, ++, -=, --
+	incrementer: 'var, plspls | var, plseq, eitherexp',
+	plspls: '"\\+\\+" | "--"',
+	plseq: '"\\+=" | "-="',
 
 	// CONSTANTS
 	constant: 'numberconstant | stringconstant | tableconstant',

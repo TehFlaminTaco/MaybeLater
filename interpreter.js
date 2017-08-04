@@ -61,6 +61,9 @@ var parseExpression = function(exp,scope){
 	if(typ == "eventaction")
 		return eventaction(ent[1], scope);
 
+	if(typ == "incrementer")
+		return incrementer(ent[1], scope);
+
 	throw new Error("Cannot Parse Expression for type: "+typ)
 }
 
@@ -416,6 +419,26 @@ var eventaction = function(action, scope){
 	throw new Error("Unknown event action: " + a);
 }
 
+var incrementer = function(inc, scope){
+	var v_name = inc[0][1][0][1];
+	var v_value = getVar(scope, v_name);
+	if(v_value === undefined)
+		v_value = 0;
+	var incType = inc[1][1][0][1];
+	if(incType == "++")
+		v_value++;
+	else if(incType == "--")
+		v_value--;
+	else{
+		var dat = parseExpression(inc[2], scope);
+		if(incType == "+=")
+			v_value+=dat;
+		else
+			v_value-=dat;
+	}
+	return assignTo(scope, false, v_name, v_value);
+}
+
 var getVar = function(scope, name){
 	if(scope.vars[name]!=undefined)
 		return scope.vars[name]
@@ -436,6 +459,8 @@ var runProgram = function(tokens, p){
 		ifblock(dat, scope);
 	}else if(typ == "eventaction"){
 		eventaction(dat, scope);
+	}else if(typ == "incrementer"){
+		incrementer(dat, scope);
 	}else{
 		console.log(tokens);
 		throw new Error("Unknown statement type: "+typ)
