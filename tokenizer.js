@@ -2,7 +2,7 @@ const fs = require("fs")
 
 module.exports = function(path){
 
-var dat = fs.readFileSync(path + "tokens.js", ()=>{})
+var dat = fs.readFileSync(path + "tokens.js")
 
 var tokens = eval(dat.toString())
 

@@ -71,14 +71,14 @@ _={
 	// TIME
 	// The great and powerful TACO knows only overkill.
 	timeunit: 'millisecond | second | minute | hour | day | month | year | decade | century',
-	millisecond: '"millisecond" | "milliseconds"',
-	second: '"second" | "seconds"',
-	minute: '"minute" | "minutes"',
-	hour: '"hour" | "hours"',
-	day: '"day" | "days"',
-	month: '"month" | "months"',
-	year: '"year" | "years"',
-	decade: '"decade" | "decades"',
-	century: '"century" | "centuries"',
+	millisecond: '"millisecond" | "milliseconds" | "ms"',
+	second: '"second" | "seconds" | "s"',
+	minute: '"minute" | "minutes" | "m"',
+	hour: '"hour" | "hours" | "h"',
+	day: '"day" | "days" | "d"',
+	month: '"month" | "months" | "M"',
+	year: '"year" | "years" | "Y"',
+	decade: '"decade" | "decades" | "D"',
+	century: '"century" | "centuries" | "C"',
 
 }
